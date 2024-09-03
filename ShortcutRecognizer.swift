@@ -9,7 +9,7 @@ import Foundation
 /// Defines a shortcut recognition mechanism that operates globally.
 /// It executes a subclass-defined action upon its activation.
 /// Think, similar to `NSGestureRecognizer`, but not `NSWindow` or `NSApp`-bound.
-public protocol ShortcutRecognizer: class {
+public protocol ShortcutRecognizer: AnyObject {
     
     /// Invoke this when the shortcut key is pressed.
     func keyDown()
@@ -94,7 +94,7 @@ public final class TapHoldShortcutRecognizer: ShortcutRecognizer {
 public extension ShortcutRecognizer {
     
     /// Bind a recognizer to a shortcut. Retain the returned object to ensure the binding.
-    public func bind(to shortcut: CGSKeyboardShortcut) -> Any {
+    func bind(to shortcut: CGSKeyboardShortcut) -> Any {
         let x = NotificationCenter.default.addObserver(forName: CGSKeyboardShortcut.pressedNotification, object: shortcut, queue: nil) { _ in
             self.keyDown()
         }
