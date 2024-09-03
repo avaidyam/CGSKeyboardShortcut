@@ -245,8 +245,9 @@ public final class CGSKeyboardShortcut: Hashable {
     //
     
     
-    public var hashValue: Int {
-        return ObjectIdentifier(self).hashValue
+    public func hash(into hasher: inout Hasher) {
+        // Unfortunately, automatic generation of hashing functions is not available for classes
+        hasher.combine(ObjectIdentifier(self))
     }
     
     public static func ==(lhs: CGSKeyboardShortcut, rhs: CGSKeyboardShortcut) -> Bool {
