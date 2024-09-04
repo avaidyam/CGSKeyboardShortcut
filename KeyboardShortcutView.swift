@@ -491,7 +491,7 @@ open class KeyboardShortcutView: NSControl, NSSecureCoding, NSAccessibilityButto
         // NSLayerContentsFacet and CoreUI to optimize this, but it's a non-issue.
         var b = self.bounds.size; b.height = 22
         let img = NSImage(size: b, flipped: false) { r in
-            self.effectiveAppearance.using {
+            self.effectiveAppearance.performAsCurrentDrawingAppearance {
                 KeyboardShortcutView.stampCell.drawBezel(withFrame: r, in: self)
             }
             return true
@@ -895,19 +895,6 @@ public func representation(of dict: NSDictionary?) -> KeyboardShortcutView.Pair?
 //
 // MARK: - Cocoa Extensions
 //
-
-
-public extension NSAppearance {
-    
-    /// Convenience method to execute a block with a provided current appearance.
-    /// Identical to private `+[NSAppearance _performWithCurrentAppearance:usingBlock:]`
-    func using(_ handler: () -> ()) {
-        let x = NSAppearance.current
-        NSAppearance.current = self
-        handler()
-        NSAppearance.current = x
-    }
-}
 
 public extension UndoManager {
     
