@@ -1,4 +1,5 @@
 import Cocoa
+import AppKit
 
 
 //
@@ -9,7 +10,7 @@ import Cocoa
 /// The protocol that `delegate`s of a `KeyboardShortcutView` must conform to.
 /// If the `KeyboardShortcutView` lacks a delegate, but has a `target`, that conforms
 /// to this protocol, it will be consulted instead.
-public protocol KeyboardShortcutViewDelegate: class {
+public protocol KeyboardShortcutViewDelegate: AnyObject {
     
     /// Return `true` to allow beginning the recording of user input for a shortcut.
     func keyboardShortcutViewShouldBeginRecording(_ keyboardShortcutView: KeyboardShortcutView) -> Bool
@@ -118,7 +119,7 @@ open class KeyboardShortcutView: NSControl, NSSecureCoding, NSAccessibilityButto
     
     
     /// Eh, why not. It's good practice.
-    open static var supportsSecureCoding: Bool {
+    public static var supportsSecureCoding: Bool {
         return true
     }
     
@@ -233,7 +234,7 @@ open class KeyboardShortcutView: NSControl, NSSecureCoding, NSAccessibilityButto
             
             // Send the control's action to its target or the first responder.
             _ = self.sendAction(self.action, to: self.target)
-            NSAccessibilityPostNotification(self, .valueChanged)
+            NSAccessibility.post(element: self, notification: .valueChanged)
             
             // Re-evaluate visual properties.
             self.needsDisplay = true
@@ -278,7 +279,7 @@ open class KeyboardShortcutView: NSControl, NSSecureCoding, NSAccessibilityButto
         let button = NSButton()
         button.wantsLayer = true
         button.translatesAutoresizingMaskIntoConstraints = false
-        button.image = NSImage(named: .stopProgressTemplate)
+        button.image = NSImage(named: NSImage.stopProgressTemplateName)
         button.bezelStyle = .texturedRounded // for template image rendering
         button.setButtonType(.momentaryChange)
         button.isBordered = false
@@ -490,7 +491,7 @@ open class KeyboardShortcutView: NSControl, NSSecureCoding, NSAccessibilityButto
         // NSLayerContentsFacet and CoreUI to optimize this, but it's a non-issue.
         var b = self.bounds.size; b.height = 22
         let img = NSImage(size: b, flipped: false) { r in
-            self.effectiveAppearance.using {
+            self.effectiveAppearance.performAsCurrentDrawingAppearance {
                 KeyboardShortcutView.stampCell.drawBezel(withFrame: r, in: self)
             }
             return true
@@ -515,8 +516,8 @@ open class KeyboardShortcutView: NSControl, NSSecureCoding, NSAccessibilityButto
         // Update button visual state (and VoiceOver state).
         self.clearButton.isEnabled = self.isEnabled
         let canStop = self.isRecording || self.shortcut != nil
-        self.clearButton.image = NSImage(named: canStop ? .stopProgressFreestandingTemplate
-                                                        : .statusUnavailable)
+        self.clearButton.image = NSImage(named: canStop ? NSImage.stopProgressFreestandingTemplateName
+                                                        : NSImage.statusUnavailableName)
         self.clearButton.setAccessibilityLabel(canStop ? Localized.buttonRecordLabel
                                                        : Localized.buttonClearLabel)
     }
@@ -624,7 +625,7 @@ open class KeyboardShortcutView: NSControl, NSSecureCoding, NSAccessibilityButto
 
         // Clear the old shortcut and begin recording if the click was within us.
         let locationInView = self.convert(event.locationInWindow, from: nil)
-        if self.mouse(locationInView, in: self.bounds) && !self.isRecording {
+        if self.isMousePoint(locationInView, in: self.bounds) && !self.isRecording {
             self.inputModifiers = []
             _ = self.beginRecording()
         } else {
@@ -659,7 +660,9 @@ open class KeyboardShortcutView: NSControl, NSSecureCoding, NSAccessibilityButto
             self.endRecording()
             
             // Handle VoiceOver:
-            NSAccessibilityPostNotificationWithUserInfo(self, .announcementRequested, [
+            NSAccessibility.post(element: self, 
+                                 notification: .announcementRequested, 
+                                 userInfo: [
                 .announcement: Localized.voiceOverRecorded,
                 .priority: NSAccessibilityPriorityLevel.high
             ])
@@ -692,7 +695,9 @@ open class KeyboardShortcutView: NSControl, NSSecureCoding, NSAccessibilityButto
         self.isRecording = true
         
         // Present VoiceOver feedback.
-        NSAccessibilityPostNotificationWithUserInfo(self, .announcementRequested, [
+        NSAccessibility.post(element: self, 
+                             notification: .announcementRequested,
+                             userInfo: [
             .announcement: Localized.voiceOverBegin,
             .priority: NSAccessibilityPriorityLevel.high
         ])
@@ -731,7 +736,9 @@ open class KeyboardShortcutView: NSControl, NSSecureCoding, NSAccessibilityButto
             self.endRecording()
             
             // Handle VoiceOver:
-            NSAccessibilityPostNotificationWithUserInfo(self, .announcementRequested, [
+            NSAccessibility.post(element: self, 
+                                 notification: .announcementRequested,
+                                 userInfo: [
                 .announcement: Localized.voiceOverCleared,
                 .priority: NSAccessibilityPriorityLevel.high
             ])
@@ -832,7 +839,7 @@ open class KeyboardShortcutView: NSControl, NSSecureCoding, NSAccessibilityButto
     open override func accessibilityHelp() -> String? {
         return Localized.help
     }
-    open override func accessibilityRole() -> NSAccessibilityRole? {
+    open override func accessibilityRole() -> NSAccessibility.Role? {
         return .button
     }
     open override func accessibilityLabel() -> String? {
@@ -889,24 +896,11 @@ public func representation(of dict: NSDictionary?) -> KeyboardShortcutView.Pair?
 // MARK: - Cocoa Extensions
 //
 
-
-public extension NSAppearance {
-    
-    /// Convenience method to execute a block with a provided current appearance.
-    /// Identical to private `+[NSAppearance _performWithCurrentAppearance:usingBlock:]`
-    public func using(_ handler: () -> ()) {
-        let x = NSAppearance.current
-        NSAppearance.current = self
-        handler()
-        NSAppearance.current = x
-    }
-}
-
 public extension UndoManager {
     
     /// Convenience method to register a target and set its action name simultaneously.
     @available(OSX 10.11, iOS 9.0, *)
-    public func registerUndo<TargetType: AnyObject>(withTarget target: TargetType, name: String, handler: @escaping (TargetType) -> Void) {
+    func registerUndo<TargetType: AnyObject>(withTarget target: TargetType, name: String, handler: @escaping (TargetType) -> Void) {
         self.registerUndo(withTarget: target, handler: handler)
         self.setActionName(name)
     }
